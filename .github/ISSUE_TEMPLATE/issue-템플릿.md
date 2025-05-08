@@ -1,5 +1,5 @@
 ---
-name: 이슈 제목을 작성해주세요.
+name: Issue 템플릿
 about: '각자 구현할 기능 소개를 위한 이슈 템플릿입니다. '
 title: "[FEAT]: "
 labels: ''
