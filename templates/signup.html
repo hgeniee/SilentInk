@@ -6,6 +6,10 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='design/signup.css') }}">
 </head>
 <body>
+  <div class="signup-vertical-wrapper">
+    <div class="logo-container">
+      <img src="{{ url_for('static', filename='images/silent_logo.png') }}" alt="silentInk 로고">
+    </div>
   <div class="signup-container">
     <h2>회원가입</h2>
     {% with messages = get_flashed_messages(with_categories=true) %}

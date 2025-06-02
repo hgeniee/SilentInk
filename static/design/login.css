@@ -6,7 +6,21 @@ body {
   align-items: center;
   height: 100vh;
 }
+.login-vertical-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+.logo-container {
+  text-align: center;
+  margin-bottom: 30px;
+}
 
+.logo-container img {
+  max-width: 200px;
+  height: auto;
+}
 .login-container, .signup-container {
   background-color: #fff;
   padding: 30px;
@@ -27,7 +41,7 @@ input {
 button {
   width: 100%;
   padding: 10px;
-  background-color: #007bff;
+  background-color: #1612d3;
   color: white;
   border: none;
   border-radius: 6px;
@@ -39,6 +53,6 @@ button:hover {
 }
 
 a {
-  color: #007bff;
+  color: #1612d3;
   text-decoration: none;
 }
