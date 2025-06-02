@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>메인 페이지</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='design/main.css') }}">
+</head>
+<body>
+  <div class="main-container">
+    <h2>{{ username }}님, 환영합니다!</h2>
+    <p>어떤 작업을 하시겠어요?</p>
+    <div class="button-group">
+      <a href="{{ url_for('eng_to_kor') }}"><button>영어 → 한국어</button></a>
+      <a href="{{ url_for('kor_to_eng') }}"><button>한국어 → 영어</button></a>
+    </div>
+    <a href="#" onclick="return false;">로그아웃</a>
+  </div>
+</body>
+</html>
