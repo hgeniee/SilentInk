@@ -1,34 +1,96 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="{{ lang }}">
 <head>
   <meta charset="UTF-8">
-  <title>회원가입</title>
+  <title>{{ '회원가입' if lang == 'ko' else 'Sign Up' }}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='design/signup.css') }}">
 </head>
 <body>
-  <div class="signup-vertical-wrapper">
-    <div class="logo-container">
-      <img src="{{ url_for('static', filename='images/silent_logo.png') }}" alt="silentInk 로고">
-    </div>
   <div class="signup-container">
-    <h2>회원가입</h2>
+    <h2 id="title-text">{{ '회원가입' if lang == 'ko' else 'Sign Up' }}</h2>
+
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
         {% set category, message = messages[-1] %}
         <ul class="flashes">
-          {% for category, message in messages %}
-            <li class="{{ category }}">{{ message }}</li>
-          {% endfor %}
+          <li class="{{ category }}">{{ message }}</li>
         </ul>
       {% endif %}
     {% endwith %}
-    <form method="POST">
-      <input type="text" name="name" placeholder="이름" required>
-      <input type="email" name="email" placeholder="이메일" required>
-      <input type="password" name="password" placeholder="비밀번호" required>
-      <button type="submit">가입하기</button>
+
+    <form method="POST" class="signup-form">
+
+      <div class="form-group">
+        <input id="name-input" type="text" name="name" placeholder="{{ '이름' if lang == 'ko' else 'Name' }}" required>
+      </div>
+
+      <div class="form-group">
+        <input id="email-input" type="email" name="email" placeholder="{{ '이메일' if lang == 'ko' else 'Email' }}" required>
+      </div>
+
+      <div class="form-group">
+        <input id="password-input" type="password" name="password" placeholder="{{ '비밀번호' if lang == 'ko' else 'Password' }}" required>
+      </div>
+
+      <div class="form-group">
+        <label id="language-label">{{ '언어 선택/Select Language' }}</label><br>
+        <select id="language-select" name="language" required>
+          <option value="ko">한국어</option>
+          <option value="en">English</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <button id="submit-button" type="submit">{{ '가입하기' if lang == 'ko' else 'Sign Up' }}</button>
+      </div>
+
     </form>
-    <p>이미 계정이 있으신가요? <a href="{{ url_for('login') }}">로그인</a></p>
+
+    <p id="already-text">
+      {{ '이미 계정이 있으신가요?' if lang == 'ko' else 'Already have an account?' }}
+      <a href="{{ url_for('login') }}">{{ '로그인' if lang == 'ko' else 'Login' }}</a>
+    </p>
   </div>
+
+  <script>
+    const translations = {
+      ko: {
+        title: "회원가입",
+        name: "이름",
+        email: "이메일",
+        password: "비밀번호",
+        language: "언어 선택/Select Language",
+        submit: "가입하기",
+        already: "이미 계정이 있으신가요?",
+        login: "로그인"
+      },
+      en: {
+        title: "Sign Up",
+        name: "Name",
+        email: "Email",
+        password: "Password",
+        language: "Select Language/언어 선택",
+        submit: "Sign Up",
+        already: "Already have an account?",
+        login: "Login"
+      }
+    };
+
+    document.getElementById("language-select").addEventListener("change", function() {
+      const lang = this.value;
+      const t = translations[lang];
+
+      document.getElementById("title-text").innerText = t.title;
+      document.getElementById("name-input").placeholder = t.name;
+      document.getElementById("email-input").placeholder = t.email;
+      document.getElementById("password-input").placeholder = t.password;
+      document.getElementById("language-label").innerText = t.language;
+      document.getElementById("submit-button").innerText = t.submit;
+
+      const alreadyText = document.getElementById("already-text");
+      alreadyText.innerHTML = `${t.already} <a href="{{ url_for('login') }}">${t.login}</a>`;
+    });
+  </script>
+
 </body>
 </html>
