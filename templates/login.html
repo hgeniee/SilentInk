@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="{{ lang }}">
 <head>
   <meta charset="UTF-8">
   <title>로그인</title>
@@ -10,24 +10,28 @@
     <div class="logo-container">
       <img src="{{ url_for('static', filename='images/silent_logo.png') }}" alt="silentInk 로고">
     </div>
-  <div class="login-container">
-    <h2>로그인</h2>
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% if messages %}
-        {% set category, message = messages[-1] %}
-        <ul class="flashes">
-          {% for category, message in messages %}
+    <div class="login-container">
+      <h2>{{ '로그인' if lang == 'ko' else 'Login' }}</h2>
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% set category, message = messages[-1] %}
+          <ul class="flashes">
             <li class="{{ category }}">{{ message }}</li>
-          {% endfor %}
-        </ul>
-      {% endif %}
-    {% endwith %}
-    <form method="POST">
-      <input type="email" name="email" placeholder="이메일" required>
-      <input type="password" name="password" placeholder="비밀번호" required>
-      <button type="submit">로그인</button>
-    </form>
-    <p>계정이 없으신가요? <a href="{{ url_for('signup') }}">회원가입</a></p>
-  </div>
+          </ul>
+        {% endif %}
+      {% endwith %}
+
+      <form method="POST">
+        <input type="email" name="email" placeholder="{{ '이메일' if lang == 'ko' else 'Email' }}" required>
+        <input type="password" name="password" placeholder="{{ '비밀번호' if lang == 'ko' else 'Password' }}" required>
+        <button type="submit">{{ '로그인' if lang == 'ko' else 'Login' }}</button>
+      </form>
+
+      <p>{{ '계정이 없으신가요?' if lang == 'ko' else 'Don’t have an account?' }}
+        <a href="{{ url_for('signup') }}?lang=ko">회원가입</a>
+        <a href="{{ url_for('signup') }}?lang=en">Sign up</a> </p>
+
+    </div>
 </body>
 </html>

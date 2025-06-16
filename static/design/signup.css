@@ -6,20 +6,7 @@ body {
   align-items: center;
   height: 100vh;
 }
-.logo-container {
-  text-align: center;
-  margin-bottom: 40px;
-}
-.signup-vertical-wrapper {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 5px;
-}
-.logo-container img {
-  max-width: 200px;
-  height: auto;
-}
+
 .login-container, .signup-container {
   background-color: #fff;
   padding: 30px;
@@ -54,4 +41,38 @@ button:hover {
 a {
   color: #1612d3;
   text-decoration: none;
+}
+
+.signup-form {
+  width: 100%;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+input, select, button {
+  width: 100%;
+  padding: 12px;
+  font-size: 16px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  box-sizing: border-box;
+}
+
+input:focus, select:focus {
+  border-color: #1612d3;
+  outline: none;
+}
+
+button {
+  background-color: #1612d3;
+  color: white;
+  font-weight: bold;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+button:hover {
+  background-color: #357ABD;
 }
