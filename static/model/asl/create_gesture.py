@@ -39,7 +39,7 @@ def store_in_db(g_id, g_name):
 	conn.commit()
 	
 def store_images(g_id):
-	total_pics = 1200
+	total_pics = 100
 	hist = get_hand_hist()
 	cam = cv2.VideoCapture(0)
 	if cam.read()[0]==False:

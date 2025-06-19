@@ -4,10 +4,87 @@
   <meta charset="UTF-8">
   <title>영어 → 한국어</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='design/eng_to_kor.css') }}">
-  <!-- static/design/파일 안에 eng_to_kor.css 파일 만드셔서 디자인 해주시면 됩니다! -->
+  <style>
+    #wrapper {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 50px;  
+      margin-top: 30px;
+    }
+    #video {
+      border: 2px solid black;
+      transform: scaleX(-1);  
+      position: relative;
+    }
+    #overlay {
+      position: absolute;
+      top: 0; left: 0;
+      pointer-events: none;
+    }
+    #result {
+      font-size: 32px;
+      font-weight: bold;
+      color: darkblue;
+    }
+  </style>
 </head>
 <body>
-    <a href="{{ url_for('main') }}">← 돌아가기</a>
+  <a href="{{ url_for('main') }}">← 돌아가기</a>
+  <h1>영어 수화 인식기</h1>
+
+  <div id="wrapper">
+    <div style="position: relative; width: 640px; height: 480px;">
+      <video id="video" autoplay playsinline width="640" height="480" style="border: 1px solid black; transform: scaleX(-1);"></video>
+      <canvas id="overlay" width="640" height="480" style="position: absolute; top: 0; left: 0; pointer-events: none;"></canvas>
+    </div>
+    <div>
+        <h3>Threshold 영역</h3>
+        <img id="thresh_img" width="300" height="300" style="border:1px solid gray">
+      </div>
   </div>
+
+  <p>예측 결과: <span id="result">대기중...</span></p>
+
+  <script>
+    navigator.mediaDevices.getUserMedia({video: true})
+      .then(function(stream) {
+        document.getElementById('video').srcObject = stream;
+      }).catch(function(err){
+        console.error("카메라 접근 오류", err);
+      });
+
+    function drawOverlay() {
+      const overlay = document.getElementById('overlay');
+      const ctx = overlay.getContext('2d');
+      ctx.clearRect(0, 0, overlay.width, overlay.height);
+      ctx.strokeStyle = "lime";
+      ctx.lineWidth = 3;
+      ctx.strokeRect(300, 100, 300, 300);
+    }
+
+    setInterval(function () {
+      drawOverlay();
+
+      const video = document.getElementById('video');
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const dataURL = canvas.toDataURL('image/jpeg');
+
+      fetch('/predict', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: dataURL })
+      })
+      .then(res => res.json())
+      .then(data => {
+        document.getElementById('result').innerText = data.result;
+        document.getElementById('thresh_img').src = 'data:image/jpeg;base64,' + data.thresh;
+      });
+    }, 500);
+  </script>
 </body>
 </html>
