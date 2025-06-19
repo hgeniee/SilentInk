@@ -9,7 +9,7 @@ from threading import Thread
 #engine = pyttsx3.init()
 # engine.setProperty('rate', 150)
 # os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-model = load_model('C:\hyunchin\cnn_model_keras2.h5')
+model = load_model('cnn_model_keras2.h5')
 
 def get_hand_hist():
 	with open("hist", "rb") as f:

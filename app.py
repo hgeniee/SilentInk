@@ -31,7 +31,7 @@ messages = {
     }
 }
 
-model = load_model(r'C:\hyunchin\cnn_model_keras2.h5')
+model = load_model(r'cnn_model_keras2.h5')
 with open("hist", "rb") as f:
     hist = pickle.load(f)
 
@@ -172,6 +172,9 @@ def predict():
 
     roi_thresh = get_img_contour_thresh(img)
 
+    result = None
+    error = None
+
     if roi_thresh is not None and roi_thresh.size > 0:
         contour_image = roi_thresh.copy()
         contours, _ = cv2.findContours(contour_image, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
@@ -185,17 +188,21 @@ def predict():
                 elif h1 > w1:
                     save_img = cv2.copyMakeBorder(save_img, 0, 0, int((h1-w1)/2), int((h1-w1)/2), cv2.BORDER_CONSTANT, (0, 0, 0))
                 pred_class = keras_predict(save_img)
+                result = str(pred_class)
             else:
-                pred_class = "손 작음"
+                error = "Contour too small"
         else:
-            pred_class = "손 없음"
+            error = "No contour found"
     else:
-        pred_class = "ROI 오류"
+        error = "ROI processing failed"
 
-    _, buffer = cv2.imencode('.jpg', roi_thresh)
-    thresh_base64 = base64.b64encode(buffer).decode('utf-8')
+    thresh_base64 = ""
+    if roi_thresh is not None:
+        _, buffer = cv2.imencode('.jpg', roi_thresh)
+        thresh_base64 = base64.b64encode(buffer).decode('utf-8')
 
-    return jsonify({'result': str(pred_class), 'thresh': thresh_base64})
+    return jsonify({'result': result, 'error': error, 'thresh': thresh_base64})
+
 
 
 @app.route('/kor_to_eng')

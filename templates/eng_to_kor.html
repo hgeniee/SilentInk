@@ -47,6 +47,7 @@
   <p>예측 결과: <span id="result">대기중...</span></p>
 
   <script>
+    // 카메라 관련 설정
     navigator.mediaDevices.getUserMedia({video: true})
       .then(function(stream) {
         document.getElementById('video').srcObject = stream;
@@ -54,6 +55,7 @@
         console.error("카메라 접근 오류", err);
       });
 
+      // 화면 네모칸 
     function drawOverlay() {
       const overlay = document.getElementById('overlay');
       const ctx = overlay.getContext('2d');
@@ -81,7 +83,7 @@
       })
       .then(res => res.json())
       .then(data => {
-        document.getElementById('result').innerText = data.result;
+        document.getElementById('result').innerText = data.result; // 서버에서 출력문 받아와서 화면에 표시 
         document.getElementById('thresh_img').src = 'data:image/jpeg;base64,' + data.thresh;
       });
     }, 500);
