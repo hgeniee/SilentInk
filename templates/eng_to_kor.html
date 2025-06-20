@@ -4,34 +4,11 @@
   <meta charset="UTF-8">
   <title>영어 → 한국어</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='design/eng_to_kor.css') }}">
-  <style>
-    #wrapper {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      gap: 50px;  
-      margin-top: 30px;
-    }
-    #video {
-      border: 2px solid black;
-      transform: scaleX(-1);  
-      position: relative;
-    }
-    #overlay {
-      position: absolute;
-      top: 0; left: 0;
-      pointer-events: none;
-    }
-    #result {
-      font-size: 32px;
-      font-weight: bold;
-      color: darkblue;
-    }
-  </style>
 </head>
 <body>
   <a href="{{ url_for('main') }}">← 돌아가기</a>
   <h1>영어 수화 인식기</h1>
+
 
   <div id="wrapper">
     <div style="position: relative; width: 640px; height: 480px;">
@@ -44,49 +21,93 @@
       </div>
   </div>
 
-  <p>예측 결과: <span id="result">대기중...</span></p>
+  <p>예측 결과: <span id="result">Loading...</span></p>
 
   <script>
-    // 카메라 관련 설정
-    navigator.mediaDevices.getUserMedia({video: true})
-      .then(function(stream) {
-        document.getElementById('video').srcObject = stream;
-      }).catch(function(err){
-        console.error("카메라 접근 오류", err);
-      });
+  const video = document.getElementById('video');
+  const overlay = document.getElementById('overlay');
+  const resultElem = document.getElementById('result');
+  const threshImg = document.getElementById('thresh_img');
 
-      // 화면 네모칸 
-    function drawOverlay() {
-      const overlay = document.getElementById('overlay');
-      const ctx = overlay.getContext('2d');
-      ctx.clearRect(0, 0, overlay.width, overlay.height);
-      ctx.strokeStyle = "lime";
-      ctx.lineWidth = 3;
-      ctx.strokeRect(300, 100, 300, 300);
+  function drawOverlay() {
+    const ctx = overlay.getContext('2d');
+    ctx.clearRect(0, 0, overlay.width, overlay.height);
+    ctx.strokeStyle = "lime";
+    ctx.lineWidth = 3;
+    ctx.strokeRect(300, 100, 300, 300);
+  }
+
+  // 웹캠 연결
+  navigator.mediaDevices.getUserMedia({ video: true })
+    .then(function(stream) {
+      video.srcObject = stream;
+      video.addEventListener('play', () => {
+  console.log("✅ 비디오가 실제로 재생되고 있습니다.");
+});
+
+video.addEventListener('error', (e) => {
+  console.error("❌ 비디오 재생 중 오류 발생:", e);
+});
+
+      video.addEventListener('loadedmetadata', () => {
+        // 비디오 준비된 후에 캡처 시작
+        setInterval(() => {
+          drawOverlay();
+
+          const canvas = document.createElement('canvas');
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          const dataURL = canvas.toDataURL('image/jpeg');
+
+          fetch('/predict', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ image: dataURL })
+          })
+          .then(res => res.json())
+          .then(data => {
+            document.getElementById('result').innerText = data.result || 'Loading...';
+            document.getElementById('thresh_img').src = 'data:image/jpeg;base64,' + data.thresh;
+
+            const spokenText = data.result || 'Loading...';
+            speakText(spokenText);  // ⬅ 음성 출력
+          });
+        }, 500);
+      });
+    })
+    .catch(function(err){
+      console.error("카메라 접근 오류", err);
+    });
+
+  function detectLanguage(text) {
+  const engRegex = /[a-zA-Z]/;
+  const korRegex = /[ㄱ-ㅎㅏ-ㅣ가-힣]/;
+
+  if (korRegex.test(text) && !engRegex.test(text)) return 'ko-KR';
+  if (engRegex.test(text) && !korRegex.test(text)) return 'en-US';
+  return 'ko-KR';
+}
+
+  let lastSpoken = "";
+
+  function speakText(text) {
+    if (!window.speechSynthesis) {
+      console.warn("이 브라우저는 SpeechSynthesis를 지원하지 않습니다.");
+      return;
     }
 
-    setInterval(function () {
-      drawOverlay();
+    if (text === lastSpoken) return;
+    lastSpoken = text;
 
-      const video = document.getElementById('video');
-      const canvas = document.createElement('canvas');
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const dataURL = canvas.toDataURL('image/jpeg');
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.lang = detectLanguage(text);  // 언어 자동 설정
+    utter.rate = 1;
+    utter.pitch = 1;
+    window.speechSynthesis.speak(utter);
+}
 
-      fetch('/predict', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: dataURL })
-      })
-      .then(res => res.json())
-      .then(data => {
-        document.getElementById('result').innerText = data.result; // 서버에서 출력문 받아와서 화면에 표시 
-        document.getElementById('thresh_img').src = 'data:image/jpeg;base64,' + data.thresh;
-      });
-    }, 500);
-  </script>
+</script>
 </body>
 </html>
