@@ -1,0 +1,9 @@
+tensorflow>=2.9.0
+keras>=2.9.0
+numpy>=1.21.0
+opencv-python>=4.5.5.64
+mediapipe>=0.8.10
+matplotlib>=3.5.1
+jupyterlab>=3.2.9
+
+
