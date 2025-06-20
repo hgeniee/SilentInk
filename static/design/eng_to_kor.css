@@ -1,0 +1,29 @@
+#wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 50px;
+  margin-top: 30px;
+}
+
+#video {
+  border: 2px solid black;
+  z-index: 1;
+  transform: scaleX(-1);
+  position: relative;
+  visibility: visible;
+}
+
+#overlay {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+}
+
+#result {
+  font-size: 32px;
+  font-weight: bold;
+  color: darkblue;
+}
