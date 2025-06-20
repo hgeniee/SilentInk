@@ -5,28 +5,10 @@
   <title>영어 → 한국어</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='design/eng_to_kor.css') }}">
   <style>
-    #wrapper {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      gap: 50px;  
-      margin-top: 30px;
-    }
-    #video {
-      border: 2px solid black;
-      transform: scaleX(-1);  
-      position: relative;
-    }
-    #overlay {
-      position: absolute;
-      top: 0; left: 0;
-      pointer-events: none;
-    }
-    #result {
-      font-size: 32px;
-      font-weight: bold;
-      color: darkblue;
-    }
+    #wrapper { display: flex; justify-content: center; align-items: center; gap: 50px; margin-top: 30px; }
+    #video { border: 2px solid black; transform: scaleX(-1); position: relative; }
+    #overlay { position: absolute; top: 0; left: 0; pointer-events: none; }
+    #result { font-size: 32px; font-weight: bold; color: darkblue; }
   </style>
 </head>
 <body>
@@ -35,45 +17,37 @@
 
   <div id="wrapper">
     <div style="position: relative; width: 640px; height: 480px;">
-      <video id="video" autoplay playsinline width="640" height="480" style="border: 1px solid black; transform: scaleX(-1);"></video>
-      <canvas id="overlay" width="640" height="480" style="position: absolute; top: 0; left: 0; pointer-events: none;"></canvas>
+      <video id="video" autoplay playsinline width="640" height="480"></video>
+      <canvas id="overlay" width="640" height="480"></canvas>
     </div>
     <div>
-        <h3>Threshold 영역</h3>
+        <h3>피부 검출 (Skin Mask)</h3>
         <img id="thresh_img" width="300" height="300" style="border:1px solid gray">
-      </div>
+    </div>
   </div>
 
   <p>예측 결과: <span id="result">대기중...</span></p>
 
   <script>
-    // 카메라 관련 설정
     navigator.mediaDevices.getUserMedia({video: true})
-      .then(function(stream) {
-        document.getElementById('video').srcObject = stream;
-      }).catch(function(err){
-        console.error("카메라 접근 오류", err);
-      });
+      .then(stream => { document.getElementById('video').srcObject = stream; })
+      .catch(err => { console.error("카메라 접근 오류", err); });
 
-      // 화면 네모칸 
     function drawOverlay() {
-      const overlay = document.getElementById('overlay');
-      const ctx = overlay.getContext('2d');
-      ctx.clearRect(0, 0, overlay.width, overlay.height);
-      ctx.strokeStyle = "lime";
-      ctx.lineWidth = 3;
+      const ctx = document.getElementById('overlay').getContext('2d');
+      ctx.clearRect(0, 0, 640, 480);
+      ctx.strokeStyle = "lime"; ctx.lineWidth = 3;
       ctx.strokeRect(300, 100, 300, 300);
     }
 
-    setInterval(function () {
+    setInterval(() => {
       drawOverlay();
-
       const video = document.getElementById('video');
       const canvas = document.createElement('canvas');
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
       const ctx = canvas.getContext('2d');
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      ctx.drawImage(video, 0, 0);
       const dataURL = canvas.toDataURL('image/jpeg');
 
       fetch('/predict', {
@@ -83,7 +57,7 @@
       })
       .then(res => res.json())
       .then(data => {
-        document.getElementById('result').innerText = data.result; // 서버에서 출력문 받아와서 화면에 표시 
+        document.getElementById('result').innerText = data.result || '인식 실패';
         document.getElementById('thresh_img').src = 'data:image/jpeg;base64,' + data.thresh;
       });
     }, 500);

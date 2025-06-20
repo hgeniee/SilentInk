@@ -1,71 +1,33 @@
 import cv2
 import numpy as np
-import pickle
 
-def build_squares(img):
-	x, y, w, h = 420, 140, 10, 10
-	d = 10
-	imgCrop = None
-	crop = None
-	for i in range(10):
-		for j in range(5):
-			if np.any(imgCrop == None):
-				imgCrop = img[y:y+h, x:x+w]
-			else:
-				imgCrop = np.hstack((imgCrop, img[y:y+h, x:x+w]))
-			#print(imgCrop.shape)
-			cv2.rectangle(img, (x,y), (x+w, y+h), (0,255,0), 1)
-			x+=w+d
-		if np.any(crop == None):
-			crop = imgCrop
-		else:
-			crop = np.vstack((crop, imgCrop)) 
-		imgCrop = None
-		x = 420
-		y+=h+d
-	return crop
+def get_skin_mask(img):
+    imgYCrCb = cv2.cvtColor(img, cv2.COLOR_BGR2YCrCb)
+    lower = np.array([0, 135, 85], dtype=np.uint8)
+    upper = np.array([255, 180, 135], dtype=np.uint8)
+    skinMask = cv2.inRange(imgYCrCb, lower, upper)
+    skinMask = cv2.GaussianBlur(skinMask, (5,5), 0)
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7,7))
+    skinMask = cv2.morphologyEx(skinMask, cv2.MORPH_CLOSE, kernel, iterations=2)
+    return skinMask
 
-def get_hand_hist():
-	cam = cv2.VideoCapture(0)
-	if cam.read()[0]==False:
-		cam = cv2.VideoCapture(0)
-	x, y, w, h = 300, 100, 300, 300
-	flagPressedC, flagPressedS = False, False
-	imgCrop = None
-	while True:
-		img = cam.read()[1]
-		img = cv2.flip(img, 1)
-		img = cv2.resize(img, (640, 480))
-		hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-		
-		keypress = cv2.waitKey(1)
-		if keypress == ord('c'):		
-			hsvCrop = cv2.cvtColor(imgCrop, cv2.COLOR_BGR2HSV)
-			flagPressedC = True
-			hist = cv2.calcHist([hsvCrop], [0, 1], None, [180, 256], [0, 180, 0, 256])
-			cv2.normalize(hist, hist, 0, 255, cv2.NORM_MINMAX)
-		elif keypress == ord('s'):
-			flagPressedS = True	
-			break
-		if flagPressedC:	
-			dst = cv2.calcBackProject([hsv], [0, 1], hist, [0, 180, 0, 256], 1)
-			dst1 = dst.copy()
-			disc = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(10,10))
-			cv2.filter2D(dst,-1,disc,dst)
-			blur = cv2.GaussianBlur(dst, (11,11), 0)
-			blur = cv2.medianBlur(blur, 15)
-			ret, thresh = cv2.threshold(blur, 50, 255, cv2.THRESH_BINARY)
-			thresh = cv2.merge((thresh,thresh,thresh))
-			#cv2.imshow("res", res)
-			cv2.imshow("Thresh", thresh)
-		if not flagPressedS:
-			imgCrop = build_squares(img)
-		#cv2.rectangle(img, (x,y), (x+w, y+h), (0,255,0), 2)
-		cv2.imshow("Set hand histogram", img)
-	cam.release()
-	cv2.destroyAllWindows()
-	with open("hist", "wb") as f:
-		pickle.dump(hist, f)
+def run_skin_detection():
+    cam = cv2.VideoCapture(0)
+    while True:
+        ret, img = cam.read()
+        img = cv2.flip(img, 1)
+        img = cv2.resize(img, (640, 480))
 
+        skin_mask = get_skin_mask(img)
+        skin_mask_bgr = cv2.merge([skin_mask]*3)
 
-get_hand_hist()
+        cv2.imshow("Original", img)
+        cv2.imshow("Skin Mask", skin_mask_bgr)
+
+        key = cv2.waitKey(1)
+        if key == ord('q'):
+            break
+    cam.release()
+    cv2.destroyAllWindows()
+
+run_skin_detection()

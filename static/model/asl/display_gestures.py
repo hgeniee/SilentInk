@@ -25,7 +25,7 @@ full_img = None
 for i in range(rows):
 	col_img = None
 	for j in range(begin_index, end_index):
-		img_path = "gestures/%s/%d.jpg" % (j, random.randint(1, 1200))
+		img_path = "gestures/%s/%d.jpg" % (j, random.randint(1, 100))
 		img = cv2.imread(img_path, 0)
 		if np.any(img == None):
 			img = np.zeros((image_y, image_x), dtype = np.uint8)

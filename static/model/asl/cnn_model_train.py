@@ -1,76 +1,63 @@
+import cv2
 import numpy as np
-import pickle
-import cv2, os
-from glob import glob
-from keras import optimizers
+import os
 from keras.models import Sequential
-from keras.layers import Dense, Dropout, Flatten, Conv2D, MaxPooling2D
+from keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout
+from keras.preprocessing.image import ImageDataGenerator
 from keras.utils import to_categorical
-from keras.callbacks import ModelCheckpoint
-from keras import backend as K
 
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+image_x, image_y = 50, 50
 
-def get_image_size():
-    img = cv2.imread('gestures/1/100.jpg', 0)
-    return img.shape if img is not None else (50, 50)
+# Load Dataset
+def load_data():
+    images, labels = [], []
+    for gesture_id in os.listdir("gestures"):
+        folder = f"gestures/{gesture_id}"
+        if os.path.isdir(folder):
+            for img_file in os.listdir(folder):
+                img = cv2.imread(f"{folder}/{img_file}", 0)
+                img = img.astype(np.float32) / 255.0  # normalize
+                images.append(img)
+                labels.append(int(gesture_id))
+    images = np.array(images).reshape(-1, image_x, image_y, 1)
+    labels = to_categorical(labels)
+    return images, labels
 
-def get_num_of_classes_from_labels(labels):
-    return np.max(labels) + 1
+images, labels = load_data()
 
-image_x, image_y = get_image_size()
+# Split train/validation
+from sklearn.model_selection import train_test_split
+train_images, val_images, train_labels, val_labels = train_test_split(images, labels, test_size=0.1, random_state=42)
 
-def cnn_model(num_of_classes):
-    model = Sequential()
-    model.add(Conv2D(16, (2,2), input_shape=(image_x, image_y, 1), activation='relu'))
-    model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='same'))
-    model.add(Conv2D(32, (3,3), activation='relu'))
-    model.add(MaxPooling2D(pool_size=(3, 3), strides=(3, 3), padding='same'))
-    model.add(Conv2D(64, (5,5), activation='relu'))
-    model.add(MaxPooling2D(pool_size=(5, 5), strides=(5, 5), padding='same'))
-    model.add(Flatten())
-    model.add(Dense(128, activation='relu'))
-    model.add(Dropout(0.2))
-    model.add(Dense(num_of_classes, activation='softmax'))
-    
-    sgd = optimizers.SGD(learning_rate=1e-2)
-    model.compile(loss='categorical_crossentropy', optimizer=sgd, metrics=['accuracy'])
-    
-    filepath = "cnn_model_keras2.h5"
-    checkpoint = ModelCheckpoint(filepath, monitor='val_accuracy', verbose=1, save_best_only=True, mode='max')
-    return model, [checkpoint]
+# Data augmentation
+datagen = ImageDataGenerator(
+    rotation_range=20,
+    width_shift_range=0.1,
+    height_shift_range=0.1,
+    zoom_range=0.15,
+    horizontal_flip=True
+)
+datagen.fit(train_images)
 
-def train():
-    with open("train_images", "rb") as f:
-        train_images = np.array(pickle.load(f))
-    with open("train_labels", "rb") as f:
-        train_labels = np.array(pickle.load(f), dtype=np.int32)
+# Build stronger model
+model = Sequential([
+    Conv2D(32, (3,3), activation='relu', input_shape=(image_x, image_y, 1)),
+    MaxPooling2D((2,2)),
+    Conv2D(64, (3,3), activation='relu'),
+    MaxPooling2D((2,2)),
+    Conv2D(128, (3,3), activation='relu'),
+    MaxPooling2D((2,2)),
+    Flatten(),
+    Dense(256, activation='relu'),
+    Dropout(0.5),
+    Dense(labels.shape[1], activation='softmax')
+])
 
-    with open("val_images", "rb") as f:
-        val_images = np.array(pickle.load(f))
-    with open("val_labels", "rb") as f:
-        val_labels = np.array(pickle.load(f), dtype=np.int32)
+model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
 
-    train_images = np.reshape(train_images, (train_images.shape[0], image_x, image_y, 1))
-    val_images = np.reshape(val_images, (val_images.shape[0], image_x, image_y, 1))
+# Train
+model.fit(datagen.flow(train_images, train_labels, batch_size=32),
+        epochs=30,
+        validation_data=(val_images, val_labels))
 
-    num_classes = get_num_of_classes_from_labels(train_labels)
-
-    train_labels = to_categorical(train_labels, num_classes=num_classes)
-    val_labels = to_categorical(val_labels, num_classes=num_classes)
-
-    print("Validation label shape:", val_labels.shape)
-
-    model, callbacks_list = cnn_model(num_classes)
-    model.summary()
-    model.fit(train_images, train_labels,
-            validation_data=(val_images, val_labels),
-            epochs=15,
-            batch_size=500,
-            callbacks=callbacks_list)
-
-    scores = model.evaluate(val_images, val_labels, verbose=0)
-    print("CNN Accuracy: %.2f%% | Error: %.2f%%" % (scores[1]*100, 100-scores[1]*100))
-
-train()
-K.clear_session()
+model.save("cnn_model_keras2.h5")
