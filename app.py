@@ -31,7 +31,7 @@ messages = {
     }
 }
 
-model = load_model(r'cnn_model_keras2.h5')
+model = load_model(r'cnn_model_keras2.h5', compile=False)
 with open("hist", "rb") as f:
     hist = pickle.load(f)
 
@@ -98,13 +98,11 @@ def home():
 @app.route('/signup', methods=['GET', 'POST'])
 def signup():
     lang = get_lang()
-
     if request.method == 'POST':
         name = request.form['name']
         email = request.form['email']
         password = request.form['password']
         language = request.form['language']
-
         if email in users:
             flash(messages['signup_duplicate'][lang], 'error')
         else:
@@ -113,26 +111,18 @@ def signup():
                 'password': generate_password_hash(password),
                 'language': language
             }
-            session['lang'] = language  # 세션에 최종 선택된 언어 저장
+            session['lang'] = language
             flash(messages['signup_success'][language], 'success')
             return redirect(url_for('login'))
-
     return render_template('signup.html', lang=lang)
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     lang = get_lang()
-
     if request.method == 'POST':
         email = request.form['email']
         password = request.form['password']
         user = users.get(email)
-
-        print("디버깅 - user 데이터:", user)
-
-        if user and check_password_hash(user['password'], password):
-            print("디버깅 - user['language'] 값:", user['language'])
-
         if user and check_password_hash(user['password'], password):
             session['user'] = user['name']
             if 'lang' not in session:
@@ -142,17 +132,13 @@ def login():
             return redirect(url_for('main'))
         else:
             flash(messages['login_fail'][lang], 'error')
-
     return render_template('login.html', lang=lang)
 
 @app.route('/main')
 def main():
     if 'user' not in session:
         return redirect(url_for('login'))
-    
     lang = get_lang()
-    print("디버깅 - 현재 main()에서 읽은 lang:", lang)
-
     return render_template('main.html', username=session['user'], lang=lang)
 
 @app.route('/eng_to_kor')
@@ -202,8 +188,6 @@ def predict():
         thresh_base64 = base64.b64encode(buffer).decode('utf-8')
 
     return jsonify({'result': result, 'error': error, 'thresh': thresh_base64})
-
-
 
 @app.route('/kor_to_eng')
 def kor_to_eng():
