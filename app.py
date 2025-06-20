@@ -5,6 +5,7 @@ import pickle
 import cv2
 import numpy as np
 import base64
+import sqlite3
 
 app = Flask(__name__)
 app.secret_key = 'your_secret_key_here'
@@ -31,62 +32,34 @@ messages = {
     }
 }
 
-model = load_model(r'cnn_model_keras2.h5', compile=False)
-with open("hist", "rb") as f:
-    hist = pickle.load(f)
+def load_label_map():
+    conn = sqlite3.connect("gesture_db.db")
+    cursor = conn.execute("SELECT g_id, g_name FROM gesture")
+    label_map = {row[0]: row[1] for row in cursor}
+    conn.close()
+    return label_map
 
+model = load_model('cnn_model_keras2.h5')
+label_map = load_label_map()
 image_x, image_y = 50, 50
 x, y, w, h = 300, 100, 300, 300
 
-def keras_process_image(img):
-    img = cv2.resize(img, (image_x, image_y))
-    img = np.array(img, dtype=np.float32)
-    img = np.reshape(img, (1, image_x, image_y, 1))
-    return img
-
-def keras_predict(image):
-    processed = keras_process_image(image)
-    pred_probab = model.predict(processed)[0]
-    pred_class = np.argmax(pred_probab)
+def keras_predict(img):
+    img = cv2.resize(img, (image_x, image_y)).astype(np.float32) / 255.0
+    img = img.reshape(1, image_x, image_y, 1)
+    pred = model.predict(img)[0]
+    pred_class = np.argmax(pred)
     return pred_class
 
-def preprocess_frame(img):
-    imgHSV = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-    dst = cv2.calcBackProject([imgHSV], [0, 1], hist, [0, 180, 0, 256], 1)
-    disc = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (10, 10))
-    cv2.filter2D(dst, -1, disc, dst)
-    blur = cv2.GaussianBlur(dst, (11, 11), 0)
-    blur = cv2.medianBlur(blur, 15)
-    thresh = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
-    thresh = cv2.merge((thresh, thresh, thresh))
-    thresh = cv2.cvtColor(thresh, cv2.COLOR_BGR2GRAY)
-    thresh = thresh[100:100+300, 300:300+300]
-    contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
-    if contours:
-        contour = max(contours, key=cv2.contourArea)
-        if cv2.contourArea(contour) > 10000:
-            x1, y1, w1, h1 = cv2.boundingRect(contour)
-            save_img = thresh[y1:y1+h1, x1:x1+w1]
-            if w1 > h1:
-                save_img = cv2.copyMakeBorder(save_img, int((w1-h1)/2), int((w1-h1)/2), 0, 0, cv2.BORDER_CONSTANT, (0, 0, 0))
-            elif h1 > w1:
-                save_img = cv2.copyMakeBorder(save_img, 0, 0, int((h1-w1)/2), int((h1-w1)/2), cv2.BORDER_CONSTANT, (0, 0, 0))
-            return save_img
-    return None
-
-def get_img_contour_thresh(img):
-    img = cv2.flip(img, 1)
-    imgHSV = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-    dst = cv2.calcBackProject([imgHSV], [0, 1], hist, [0, 180, 0, 256], 1)
-    disc = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (10, 10))
-    cv2.filter2D(dst, -1, disc, dst)
-    blur = cv2.GaussianBlur(dst, (11, 11), 0)
-    blur = cv2.medianBlur(blur, 15)
-    thresh = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
-    thresh = cv2.merge((thresh, thresh, thresh))
-    thresh = cv2.cvtColor(thresh, cv2.COLOR_BGR2GRAY)
-    roi_thresh = thresh[y:y+h, x:x+w]
-    return roi_thresh
+def get_skin_mask(img):
+    imgYCrCb = cv2.cvtColor(img, cv2.COLOR_BGR2YCrCb)
+    lower = np.array([0, 135, 85], dtype=np.uint8)
+    upper = np.array([255, 180, 135], dtype=np.uint8)
+    mask = cv2.inRange(imgYCrCb, lower, upper)
+    mask = cv2.GaussianBlur(mask, (5,5), 0)
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7,7))
+    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel, iterations=2)
+    return mask
 
 def get_lang():
     return session.get('lang', 'ko')
@@ -145,8 +118,7 @@ def main():
 def eng_to_kor():
     if 'user' not in session:
         return redirect(url_for('login'))
-    lang = get_lang()
-    return render_template('eng_to_kor.html', lang=lang)
+    return render_template('eng_to_kor.html', lang=session.get('lang', 'ko'))
 
 @app.route('/predict', methods=['POST'])
 def predict():
@@ -155,39 +127,30 @@ def predict():
     img_data = base64.b64decode(encoded_data)
     np_arr = np.frombuffer(img_data, np.uint8)
     img = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+    img = cv2.flip(img, 1)
 
-    roi_thresh = get_img_contour_thresh(img)
-
+    skin_mask = get_skin_mask(img)
+    roi = skin_mask[y:y+h, x:x+w]
+    contours, _ = cv2.findContours(roi.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    
     result = None
-    error = None
+    if len(contours) > 0:
+        contour = max(contours, key=cv2.contourArea)
+        if cv2.contourArea(contour) > 10000:
+            x1, y1, w1, h1 = cv2.boundingRect(contour)
+            hand_img = roi[y1:y1+h1, x1:x1+w1]
+            if w1 > h1:
+                hand_img = cv2.copyMakeBorder(hand_img, int((w1-h1)/2), int((w1-h1)/2), 0, 0, cv2.BORDER_CONSTANT, 0)
+            elif h1 > w1:
+                hand_img = cv2.copyMakeBorder(hand_img, 0, 0, int((h1-w1)/2), int((h1-w1)/2), cv2.BORDER_CONSTANT, 0)
 
-    if roi_thresh is not None and roi_thresh.size > 0:
-        contour_image = roi_thresh.copy()
-        contours, _ = cv2.findContours(contour_image, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
-        if contours:
-            contour = max(contours, key=cv2.contourArea)
-            if cv2.contourArea(contour) > 10000:
-                x1, y1, w1, h1 = cv2.boundingRect(contour)
-                save_img = roi_thresh[y1:y1+h1, x1:x1+w1]
-                if w1 > h1:
-                    save_img = cv2.copyMakeBorder(save_img, int((w1-h1)/2), int((w1-h1)/2), 0, 0, cv2.BORDER_CONSTANT, (0, 0, 0))
-                elif h1 > w1:
-                    save_img = cv2.copyMakeBorder(save_img, 0, 0, int((h1-w1)/2), int((h1-w1)/2), cv2.BORDER_CONSTANT, (0, 0, 0))
-                pred_class = keras_predict(save_img)
-                result = str(pred_class)
-            else:
-                error = "Contour too small"
-        else:
-            error = "No contour found"
-    else:
-        error = "ROI processing failed"
+            pred_class = keras_predict(hand_img)  # ← 이거 추가!
+            result = label_map.get(pred_class, "Unknown")
 
-    thresh_base64 = ""
-    if roi_thresh is not None:
-        _, buffer = cv2.imencode('.jpg', roi_thresh)
-        thresh_base64 = base64.b64encode(buffer).decode('utf-8')
+    _, buffer = cv2.imencode('.jpg', roi)
+    thresh_base64 = base64.b64encode(buffer).decode('utf-8')
+    return jsonify({'result': result, 'thresh': thresh_base64})
 
-    return jsonify({'result': result, 'error': error, 'thresh': thresh_base64})
 
 @app.route('/kor_to_eng')
 def kor_to_eng():
