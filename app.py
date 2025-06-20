@@ -7,6 +7,22 @@ import numpy as np
 import base64
 import sqlite3
 
+from sing_lang_trans.webcam_test_model_tflite import (
+    initialize_detector_and_model,
+    process_hand_landmarks,
+    predict_action,
+    actions,
+    seq_length
+)
+
+# 서버 구동 시 한 번만 모델 로딩
+detector, interpreter = initialize_detector_and_model()
+
+# 순차 예측을 위한 전역 변수
+seq = []
+action_seq = []
+last_action = None
+
 app = Flask(__name__)
 app.secret_key = 'your_secret_key_here'
 app.jinja_env.cache = {}
@@ -122,34 +138,56 @@ def eng_to_kor():
 
 @app.route('/predict', methods=['POST'])
 def predict():
+    global seq, action_seq, last_action
+
+    # 1) base64 → OpenCV BGR 이미지
     data = request.json['image']
-    encoded_data = data.split(',')[1]
-    img_data = base64.b64decode(encoded_data)
+    img_data = base64.b64decode(data.split(',')[1])
     np_arr = np.frombuffer(img_data, np.uint8)
-    img = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
-    img = cv2.flip(img, 1)
+    frame = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+    # frame = cv2.flip(frame, 1)
 
-    skin_mask = get_skin_mask(img)
-    roi = skin_mask[y:y+h, x:x+w]
-    contours, _ = cv2.findContours(roi.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-    
+    # 2) MediaPipe 홀리스틱 적용(draw=True)
+    img = detector.findHolistic(frame, draw=True)
+    _, right_hand_lmList = detector.findRighthandLandmark(img)
+
     result = None
-    if len(contours) > 0:
-        contour = max(contours, key=cv2.contourArea)
-        if cv2.contourArea(contour) > 10000:
-            x1, y1, w1, h1 = cv2.boundingRect(contour)
-            hand_img = roi[y1:y1+h1, x1:x1+w1]
-            if w1 > h1:
-                hand_img = cv2.copyMakeBorder(hand_img, int((w1-h1)/2), int((w1-h1)/2), 0, 0, cv2.BORDER_CONSTANT, 0)
-            elif h1 > w1:
-                hand_img = cv2.copyMakeBorder(hand_img, 0, 0, int((h1-w1)/2), int((h1-w1)/2), cv2.BORDER_CONSTANT, 0)
 
-            pred_class = keras_predict(hand_img)  # ← 이거 추가!
-            result = label_map.get(pred_class, "Unknown")
+    # 3) 기존 예측 로직 유지
+    if right_hand_lmList:
+        feat = process_hand_landmarks(right_hand_lmList)
+        seq.append(feat)
 
-    _, buffer = cv2.imencode('.jpg', roi)
-    thresh_base64 = base64.b64encode(buffer).decode('utf-8')
-    return jsonify({'result': result, 'thresh': thresh_base64})
+        if len(seq) >= seq_length:
+            input_data = np.expand_dims(
+                np.array(seq[-seq_length:], dtype=np.float32), axis=0
+            )
+            y_pred = predict_action(interpreter, input_data)
+            i_pred = int(np.argmax(y_pred))
+            conf = y_pred[i_pred]
+
+            if conf > 0.9:
+                action = actions[i_pred]
+                action_seq.append(action)
+
+                if (
+                    len(action_seq) >= 3 and
+                    action_seq[-1] == action_seq[-2] == action_seq[-3] and
+                    last_action != action
+                ):
+                    last_action = action
+                    result = action
+
+    # 4) draw된 img → JPEG → base64
+    _, buf = cv2.imencode('.jpg', img)
+    frame_b64 = base64.b64encode(buf).decode('utf-8')
+
+    # 5) result 와 frame을 같이 반환
+    return jsonify({
+        'result': result,
+        'frame': frame_b64
+    })
+
 
 
 @app.route('/kor_to_eng')

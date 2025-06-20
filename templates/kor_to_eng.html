@@ -2,12 +2,106 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <title>한국어 → 영어</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='design/kor_to_eng.css') }}">
-  <!-- static/design/파일 안에 kor_to_eng.css 파일 만드셔서 디자인 해주시면 됩니다! -->
+  <title>수어 → 한국어</title>
+  <style>
+
+    body {
+      margin: 0;
+      padding: 0;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #f3f4f6;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    .wrapper {
+      width: 800px;
+      max-width: 90vw;
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      overflow: hidden;
+    }
+
+    .video-container {
+      position: relative;
+      padding-top: 56.25%; 
+      background: #000;
+    }
+    .video-container video,
+    .video-container canvas {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      object-fit: contain;
+    }
+
+    .result {
+      padding: 16px;
+      background: #ffffff;
+      text-align: center;
+      font-size: 2rem;
+      color: #333;
+      border-top: 1px solid #e5e7eb;
+    }
+  </style>
 </head>
 <body>
-    <a href="{{ url_for('main') }}">← 돌아가기</a>
+  <div class="wrapper">
+    <div class="video-container">
+      <video id="video" autoplay playsinline muted></video>
+      <canvas id="overlay"></canvas>
+    </div>
+    <div class="result" id="res"></div>
   </div>
+
+  <script>
+    const video = document.getElementById('video');
+    const overlay = document.getElementById('overlay');
+    const ctx = overlay.getContext('2d');
+    const resEl = document.getElementById('res');
+
+    navigator.mediaDevices.getUserMedia({ video: true })
+      .then(stream => {
+        video.srcObject = stream;
+        video.onloadedmetadata = () => {
+          overlay.width = video.videoWidth;
+          overlay.height = video.videoHeight;
+          startLoop();
+        };
+      });
+
+    async function predictAndDraw() {
+
+      ctx.drawImage(video, 0, 0, overlay.width, overlay.height);
+      const dataURL = overlay.toDataURL('image/jpeg');
+
+      const resp = await fetch('/predict', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: dataURL })
+      });
+      const { result, frame } = await resp.json();
+
+      if (frame) {
+        const img = new Image();
+        img.onload = () => {
+          ctx.clearRect(0, 0, overlay.width, overlay.height);
+          ctx.drawImage(img, 0, 0, overlay.width, overlay.height);
+        };
+        img.src = 'data:image/jpeg;base64,' + frame;
+      }
+
+      if (result) {
+        resEl.innerText = result;
+      }
+    }
+
+    function startLoop() {
+      setInterval(predictAndDraw, 200);
+    }
+  </script>
 </body>
 </html>
