@@ -39,7 +39,7 @@ def load_label_map():
     conn.close()
     return label_map
 
-model = load_model('cnn_model_keras2.h5')
+model = load_model('cnn_model_keras2.h5', compile=False)
 label_map = load_label_map()
 image_x, image_y = 50, 50
 x, y, w, h = 300, 100, 300, 300
