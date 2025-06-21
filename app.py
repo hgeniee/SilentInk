@@ -6,6 +6,7 @@ import cv2
 import numpy as np
 import base64
 import sqlite3
+import time
 
 from sing_lang_trans.webcam_test_model_tflite import (
     initialize_detector_and_model,
@@ -136,32 +137,52 @@ def eng_to_kor():
         return redirect(url_for('login'))
     return render_template('eng_to_kor.html', lang=session.get('lang', 'ko'))
 
+collected_jamos = ''
+last_jamo_time  = time.time()
+TIMEOUT_SECONDS = 3   
+
+CHO = "ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ"
+JUN = "ㅏㅐㅑㅒㅓㅔㅕㅖㅗㅘㅙㅚㅛㅜㅝㅞㅟㅠㅡㅢㅣ"
+JON = [""] + list("ㄱㄲㄳㄴㄵㄶㄷㄹㄺㄻㄼㄽㄾㄿㅀㅁㅂㅄㅅㅆㅇㅈㅊㅋㅌㅍㅎ")
+
+def compose_jamos(text: str) -> str:
+    res, i = [], 0
+    while i < len(text):
+        if i + 1 >= len(text):
+            res.extend(text[i:]); break
+        cho, jun = text[i], text[i+1]
+        if cho not in CHO or jun not in JUN:
+            res.append(cho); i += 1; continue
+        jong = ""
+        if i + 2 < len(text) and text[i+2] in JON[1:]:
+            jong = text[i+2]
+        syll = chr(0xAC00 + (CHO.index(cho)*21 + JUN.index(jun))*28 + JON.index(jong))
+        res.append(syll)
+        i += 3 if jong else 2
+    return "".join(res)
+
 @app.route('/predict', methods=['POST'])
 def predict():
     global seq, action_seq, last_action
+    global collected_jamos, last_jamo_time
 
-    # 1) base64 → OpenCV BGR 이미지
     data = request.json['image']
     img_data = base64.b64decode(data.split(',')[1])
     np_arr = np.frombuffer(img_data, np.uint8)
     frame = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
-    # frame = cv2.flip(frame, 1)
 
-    # 2) MediaPipe 홀리스틱 적용(draw=True)
     img = detector.findHolistic(frame, draw=True)
     _, right_hand_lmList = detector.findRighthandLandmark(img)
 
     result = None
+    result_type = 'char'  
 
-    # 3) 기존 예측 로직 유지
     if right_hand_lmList:
         feat = process_hand_landmarks(right_hand_lmList)
         seq.append(feat)
 
         if len(seq) >= seq_length:
-            input_data = np.expand_dims(
-                np.array(seq[-seq_length:], dtype=np.float32), axis=0
-            )
+            input_data = np.expand_dims(np.array(seq[-seq_length:], dtype=np.float32), axis=0)
             y_pred = predict_action(interpreter, input_data)
             i_pred = int(np.argmax(y_pred))
             conf = y_pred[i_pred]
@@ -172,22 +193,30 @@ def predict():
 
                 if (
                     len(action_seq) >= 3 and
-                    action_seq[-1] == action_seq[-2] == action_seq[-3] and
+                    action_seq[-3:] == [action] * 3 and
                     last_action != action
                 ):
                     last_action = action
+                    collected_jamos += action
+                    last_jamo_time = time.time()
                     result = action
+                    result_type = 'char'
 
-    # 4) draw된 img → JPEG → base64
+    if collected_jamos and (time.time() - last_jamo_time > TIMEOUT_SECONDS):
+        result = compose_jamos(collected_jamos)
+        result_type = 'word'
+        collected_jamos = ''
+        action_seq.clear()
+        last_action = None
+
     _, buf = cv2.imencode('.jpg', img)
     frame_b64 = base64.b64encode(buf).decode('utf-8')
 
-    # 5) result 와 frame을 같이 반환
     return jsonify({
         'result': result,
+        'type': result_type,
         'frame': frame_b64
     })
-
 
 
 @app.route('/kor_to_eng')
