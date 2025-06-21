@@ -218,6 +218,37 @@ def predict():
         'frame': frame_b64
     })
 
+@app.route('/predict-asl', methods=['POST'])
+def predict_asl():
+    data = request.json['image']
+    encoded_data = data.split(',')[1]
+    img_data = base64.b64decode(encoded_data)
+    np_arr = np.frombuffer(img_data, np.uint8)
+    img = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+    img = cv2.flip(img, 1)
+
+    skin_mask = get_skin_mask(img)
+    roi = skin_mask[y:y+h, x:x+w]
+    contours, _ = cv2.findContours(roi.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    
+    result = None
+    if len(contours) > 0:
+        contour = max(contours, key=cv2.contourArea)
+        if cv2.contourArea(contour) > 10000:
+            x1, y1, w1, h1 = cv2.boundingRect(contour)
+            hand_img = roi[y1:y1+h1, x1:x1+w1]
+            if w1 > h1:
+                hand_img = cv2.copyMakeBorder(hand_img, int((w1-h1)/2), int((w1-h1)/2), 0, 0, cv2.BORDER_CONSTANT, 0)
+            elif h1 > w1:
+                hand_img = cv2.copyMakeBorder(hand_img, 0, 0, int((h1-w1)/2), int((h1-w1)/2), cv2.BORDER_CONSTANT, 0)
+
+            pred_class = keras_predict(hand_img)  
+            result = label_map.get(pred_class, "Unknown")
+
+    _, buffer = cv2.imencode('.jpg', roi)
+    thresh_base64 = base64.b64encode(buffer).decode('utf-8')
+    return jsonify({'result': result, 'thresh': thresh_base64})
+
 
 @app.route('/kor_to_eng')
 def kor_to_eng():
