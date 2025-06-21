@@ -1,0 +1,9 @@
+mediapipe
+Flask
+Werkzeug
+opencv-python
+tensorflow
+keras
+numpy
+Pillow
+scikit-learn

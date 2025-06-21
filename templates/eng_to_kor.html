@@ -63,7 +63,7 @@
     ctx.drawImage(video, 0, 0);
     const dataURL = canvas.toDataURL('image/jpeg');
 
-    fetch('/predict', {
+    fetch('/predict-asl', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ image: dataURL })
