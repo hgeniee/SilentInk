@@ -84,7 +84,7 @@ def predict_action(interpreter: tf.lite.Interpreter, input_data: np.ndarray) -> 
 
 def main():
     detector, interpreter = initialize_detector_and_model()
-    cap = cv2.VideoCapture(0)
+    cap = cv2.VideoCapture(1)
 
     seq: list[np.ndarray] = []
     action_seq: list[str] = []
