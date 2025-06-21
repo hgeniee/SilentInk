@@ -28,6 +28,28 @@
 
 ---
 
+## 🖥️ 프로젝트 설치 및 실행 방법
+**필수 패키지 설치**
+```bash
+pip install -r requirements.txt
+```
+
+**프로그램 실행**
+```bash
+python app.py
+```
+실행 후 웹 브라우저에서 회원가입 또는 로그인 (영어/한국어 선택 가능) →
+메인 페이지에서 "영어 수화 ↔ 한국어 수화 번역" 중 원하는 모드를 선택 →
+웹캠을 통해 실시간으로 수화를 인식하여 번역 결과를 제공합니다.
+
+**수화를 학습시키고 싶다면**
+1. create_gestures.py 실행<br>
+2. load_images.py 실행<br>
+3. cnn_model_train.py 실행<br>
+4. final.py 실행해서 확인<br>
+
+---
+
 ## 🛠️ 기술 스택 & 도구
 영상 처리: OpenCV, MediaPipe <br>
 ASL 인식: TensorFlow / PyTorch 기반 CNN <br>
@@ -81,3 +103,51 @@ SILENTINK/
 ├── train_labels/
 ├── val_images/                # 검증 이미지셋
 └── val_labels/
+```
+
+---
+
+## 👥 팀원
+숙명여자대학교 수학과 20 최윤녕<br>
+숙명여자대학교 인공지능공학부 23 이현진<br>
+숙명여자대학교 인공지능공학부 23 황유림
+
+---
+
+## 🔗 원본 프로젝트 출처
+
+본 프로젝트는 다음 오픈소스 프로젝트를 기반으로 개발되었습니다:
+
+- **Sign Language Interpreter using Deep Learning**  
+  - GitHub 링크: https://github.com/harshbg/Sign-Language-Interpreter-using-Deep-Learning.git
+    
+- **hearing_impaired_helper_make_model**  
+  - GitHub 링크: https://github.com/Ghoney99/hearing_impaired_helper_make_model.git
+ 
+---
+
+## 📜 라이센스 
+MIT License
+
+Copyright (c) 2025 Yoonryung Choi, Hyunchin Lee, Yurim Hwang
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+
+---

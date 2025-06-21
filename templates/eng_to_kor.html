@@ -27,6 +27,7 @@
   </div>
 
   <p>예측 결과: <span id="result">Loading...</span></p>
+  <p>번역 결과: <span id="translated">대기중...</span></p>
 
   <script>
     const video = document.getElementById('video');
@@ -52,30 +53,46 @@
     }
 
     function captureAndSend() {
-      drawOverlay();
-      if (video.videoWidth === 0 || video.videoHeight === 0) return;
+    drawOverlay();
+    if (video.videoWidth === 0 || video.videoHeight === 0) return;
 
-      const canvas = document.createElement('canvas');
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(video, 0, 0);
-      const dataURL = canvas.toDataURL('image/jpeg');
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0);
+    const dataURL = canvas.toDataURL('image/jpeg');
 
-      fetch('/predict', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: dataURL })
-      })
-      .then(res => res.json())
-      .then(data => {
-        document.getElementById('result').innerText = data.result || 'Loading...';
-        document.getElementById('thresh_img').src = 'data:image/jpeg;base64,' + data.thresh;
+    fetch('/predict-asl', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image: dataURL })
+    })
+    .then(res => res.json())
+    .then(data => {
+      const resultText = data.result || 'Loading...';
+      document.getElementById('result').innerText = resultText;
+      document.getElementById('thresh_img').src = 'data:image/jpeg;base64,' + data.thresh;
 
-        const spokenText = data.result || 'Loading...';
-        speakText(spokenText);
-      });
-    }
+      if (resultText !== 'Loading...' && resultText !== lastSpoken) {
+        lastSpoken = resultText;
+
+        const encoded = encodeURIComponent(resultText);
+        fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=ko&dt=t&q=${encoded}`)
+          .then(res => res.json())
+          .then(data => {
+            const translated = data[0].map(item => item[0]).join('');
+            document.getElementById('translated').innerText = translated;
+            speakText(translated);
+          })
+          .catch(err => {
+            console.error("번역 실패:", err);
+            speakText(resultText); 
+          });
+      }
+    });
+  }
+
 
     function detectLanguage(text) {
       const engRegex = /[a-zA-Z]/;
@@ -92,15 +109,13 @@
         console.warn("이 브라우저는 SpeechSynthesis를 지원하지 않습니다.");
         return;
       }
-      if (text === lastSpoken) return;
-      lastSpoken = text;
-
       const utter = new SpeechSynthesisUtterance(text);
-      utter.lang = detectLanguage(text);
+      utter.lang = 'ko-KR';
       utter.rate = 1;
       utter.pitch = 1;
       window.speechSynthesis.speak(utter);
     }
+
   </script>
 </body>
 </html>

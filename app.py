@@ -7,7 +7,6 @@ import numpy as np
 import base64
 import sqlite3
 import time
-
 from sing_lang_trans.webcam_test_model_tflite import (
     initialize_detector_and_model,
     process_hand_landmarks,
@@ -56,7 +55,7 @@ def load_label_map():
     conn.close()
     return label_map
 
-model = load_model('cnn_model_keras2.h5')
+model = load_model('cnn_model_keras2.h5', compile=False)
 label_map = load_label_map()
 image_x, image_y = 50, 50
 x, y, w, h = 300, 100, 300, 300
@@ -166,57 +165,94 @@ def predict():
     global seq, action_seq, last_action
     global collected_jamos, last_jamo_time
 
+    try:
+        data = request.get_json(force=True)
+        img_b64 = data.get('image', '')
+
+        img_data = base64.b64decode(img_b64.split(',')[1])
+        np_arr = np.frombuffer(img_data, np.uint8)
+        frame = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+
+        img = detector.findHolistic(frame, draw=True)
+        _, right_hand_lmList = detector.findRighthandLandmark(img)
+
+        result = None
+        result_type = 'char'  
+
+        if right_hand_lmList:
+            feat = process_hand_landmarks(right_hand_lmList)
+            seq.append(feat)
+
+            if len(seq) >= seq_length:
+                input_data = np.expand_dims(np.array(seq[-seq_length:], dtype=np.float32), axis=0)
+                y_pred = predict_action(interpreter, input_data)
+                i_pred = int(np.argmax(y_pred))
+                conf = y_pred[i_pred]
+
+                if conf > 0.9:
+                    action = actions[i_pred]
+                    action_seq.append(action)
+
+                    if (
+                        len(action_seq) >= 3 and
+                        action_seq[-3:] == [action] * 3 and
+                        last_action != action
+                    ):
+                        last_action = action
+                        collected_jamos += action
+                        last_jamo_time = time.time()
+                        result = action
+                        result_type = 'char'
+
+        if collected_jamos and (time.time() - last_jamo_time > TIMEOUT_SECONDS):
+            result = compose_jamos(collected_jamos)
+            result_type = 'word'
+            collected_jamos = ''
+            action_seq.clear()
+            last_action = None
+
+        _, buf = cv2.imencode('.jpg', img)
+        frame_b64 = base64.b64encode(buf).decode('utf-8')
+
+        return jsonify({
+            'result': result,
+            'type': result_type,
+            'frame': frame_b64
+        })
+    except Exception as e:
+        print("🔥 예외 발생:", e)
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/predict-asl', methods=['POST'])
+def predict_asl():
     data = request.json['image']
-    img_data = base64.b64decode(data.split(',')[1])
+    encoded_data = data.split(',')[1]
+    img_data = base64.b64decode(encoded_data)
     np_arr = np.frombuffer(img_data, np.uint8)
-    frame = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+    img = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+    img = cv2.flip(img, 1)
 
-    img = detector.findHolistic(frame, draw=True)
-    _, right_hand_lmList = detector.findRighthandLandmark(img)
-
+    skin_mask = get_skin_mask(img)
+    roi = skin_mask[y:y+h, x:x+w]
+    contours, _ = cv2.findContours(roi.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    
     result = None
-    result_type = 'char'  
+    if len(contours) > 0:
+        contour = max(contours, key=cv2.contourArea)
+        if cv2.contourArea(contour) > 10000:
+            x1, y1, w1, h1 = cv2.boundingRect(contour)
+            hand_img = roi[y1:y1+h1, x1:x1+w1]
+            if w1 > h1:
+                hand_img = cv2.copyMakeBorder(hand_img, int((w1-h1)/2), int((w1-h1)/2), 0, 0, cv2.BORDER_CONSTANT, 0)
+            elif h1 > w1:
+                hand_img = cv2.copyMakeBorder(hand_img, 0, 0, int((h1-w1)/2), int((h1-w1)/2), cv2.BORDER_CONSTANT, 0)
 
-    if right_hand_lmList:
-        feat = process_hand_landmarks(right_hand_lmList)
-        seq.append(feat)
+            pred_class = keras_predict(hand_img)  
+            result = label_map.get(pred_class, "Unknown")
 
-        if len(seq) >= seq_length:
-            input_data = np.expand_dims(np.array(seq[-seq_length:], dtype=np.float32), axis=0)
-            y_pred = predict_action(interpreter, input_data)
-            i_pred = int(np.argmax(y_pred))
-            conf = y_pred[i_pred]
-
-            if conf > 0.9:
-                action = actions[i_pred]
-                action_seq.append(action)
-
-                if (
-                    len(action_seq) >= 3 and
-                    action_seq[-3:] == [action] * 3 and
-                    last_action != action
-                ):
-                    last_action = action
-                    collected_jamos += action
-                    last_jamo_time = time.time()
-                    result = action
-                    result_type = 'char'
-
-    if collected_jamos and (time.time() - last_jamo_time > TIMEOUT_SECONDS):
-        result = compose_jamos(collected_jamos)
-        result_type = 'word'
-        collected_jamos = ''
-        action_seq.clear()
-        last_action = None
-
-    _, buf = cv2.imencode('.jpg', img)
-    frame_b64 = base64.b64encode(buf).decode('utf-8')
-
-    return jsonify({
-        'result': result,
-        'type': result_type,
-        'frame': frame_b64
-    })
+    _, buffer = cv2.imencode('.jpg', roi)
+    thresh_base64 = base64.b64encode(buffer).decode('utf-8')
+    return jsonify({'result': result, 'thresh': thresh_base64})
 
 
 @app.route('/kor_to_eng')
