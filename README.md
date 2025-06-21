@@ -108,7 +108,7 @@ SILENTINK/
 ---
 
 ## 👥 팀원
-숙명여자대학교 IT공학부 20 최윤녕<br>
+숙명여자대학교 수학과 20 최윤녕<br>
 숙명여자대학교 인공지능공학부 23 이현진<br>
 숙명여자대학교 인공지능공학부 23 황유림
 
@@ -129,7 +129,7 @@ SILENTINK/
 ## 📜 라이센스 
 MIT License
 
-Copyright (c) 2025 Yunnyeong Choi, Hyunchin Lee, Yurim Hwang
+Copyright (c) 2025 Yoonryung Choi, Hyunchin Lee, Yurim Hwang
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
