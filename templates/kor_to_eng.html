@@ -2,14 +2,8 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-<<<<<<< HEAD
-  <title>수어 → 한국어</title>
-  <style>
-
-=======
   <title>수어 → 영어</title>
   <style>
->>>>>>> main
     body {
       margin: 0;
       padding: 0;
@@ -32,16 +26,10 @@
 
     .video-container {
       position: relative;
-<<<<<<< HEAD
-      padding-top: 56.25%; 
-      background: #000;
-    }
-=======
       padding-top: 56.25%;
       background: #000;
     }
 
->>>>>>> main
     .video-container video,
     .video-container canvas {
       position: absolute;
@@ -54,12 +42,6 @@
       padding: 16px;
       background: #ffffff;
       text-align: center;
-<<<<<<< HEAD
-      font-size: 2rem;
-      color: #333;
-      border-top: 1px solid #e5e7eb;
-    }
-=======
       font-size: 1.6rem;
       color: #333;
       border-top: 1px solid #e5e7eb;
@@ -69,7 +51,6 @@
       font-weight: bold;
       color: #1f2937;
     }
->>>>>>> main
   </style>
 </head>
 <body>
@@ -78,14 +59,10 @@
       <video id="video" autoplay playsinline muted></video>
       <canvas id="overlay"></canvas>
     </div>
-<<<<<<< HEAD
-    <div class="result" id="res"></div>
-=======
     <div class="result">
       예측 결과: <span id="res">대기 중...</span><br>
       번역 결과(영어): <span id="word">Loading...</span>
     </div>
->>>>>>> main
   </div>
 
   <script>
@@ -93,53 +70,21 @@
     const overlay = document.getElementById('overlay');
     const ctx = overlay.getContext('2d');
     const resEl = document.getElementById('res');
-<<<<<<< HEAD
-=======
     const wordEl = document.getElementById('word');
 
     let lastSpoken = "";
->>>>>>> main
 
     navigator.mediaDevices.getUserMedia({ video: true })
       .then(stream => {
         video.srcObject = stream;
         video.onloadedmetadata = () => {
-<<<<<<< HEAD
-          overlay.width = video.videoWidth;
-          overlay.height = video.videoHeight;
-=======
           overlay.width = 320;
           overlay.height = 240;
->>>>>>> main
           startLoop();
         };
       });
 
     async function predictAndDraw() {
-<<<<<<< HEAD
-
-      ctx.drawImage(video, 0, 0, overlay.width, overlay.height);
-      const dataURL = overlay.toDataURL('image/jpeg');
-
-      const resp = await fetch('/predict', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: dataURL })
-      });
-      const { result, frame } = await resp.json();
-
-      if (frame) {
-        const img = new Image();
-        img.onload = () => {
-          ctx.clearRect(0, 0, overlay.width, overlay.height);
-          ctx.drawImage(img, 0, 0, overlay.width, overlay.height);
-        };
-        img.src = 'data:image/jpeg;base64,' + frame;
-      }
-
-      if (result) {
-        resEl.innerText = result;
-=======
       ctx.drawImage(video, 0, 0, overlay.width, overlay.height);
       const dataURL = overlay.toDataURL('image/jpeg', 0.5);
 
@@ -188,18 +133,12 @@
         }
       } catch (err) {
         console.error("❌ 예측 중 오류 발생:", err);
->>>>>>> main
       }
     }
 
     function startLoop() {
       setInterval(predictAndDraw, 200);
     }
-<<<<<<< HEAD
-  </script>
-</body>
-</html>
-=======
 
     function speakText(text) {
       if (!window.speechSynthesis) {
@@ -216,4 +155,3 @@
 </body>
 </html>
 
->>>>>>> main
