@@ -2,9 +2,8 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <title>수어 → 한국어</title>
+  <title>수어 → 영어</title>
   <style>
-
     body {
       margin: 0;
       padding: 0;
@@ -27,9 +26,10 @@
 
     .video-container {
       position: relative;
-      padding-top: 56.25%; 
+      padding-top: 56.25%;
       background: #000;
     }
+
     .video-container video,
     .video-container canvas {
       position: absolute;
@@ -42,9 +42,14 @@
       padding: 16px;
       background: #ffffff;
       text-align: center;
-      font-size: 2rem;
+      font-size: 1.6rem;
       color: #333;
       border-top: 1px solid #e5e7eb;
+    }
+
+    .result span {
+      font-weight: bold;
+      color: #1f2937;
     }
   </style>
 </head>
@@ -54,7 +59,10 @@
       <video id="video" autoplay playsinline muted></video>
       <canvas id="overlay"></canvas>
     </div>
-    <div class="result" id="res"></div>
+    <div class="result">
+      예측 결과: <span id="res">대기 중...</span><br>
+      번역 결과(영어): <span id="word">Loading...</span>
+    </div>
   </div>
 
   <script>
@@ -62,46 +70,88 @@
     const overlay = document.getElementById('overlay');
     const ctx = overlay.getContext('2d');
     const resEl = document.getElementById('res');
+    const wordEl = document.getElementById('word');
+
+    let lastSpoken = "";
 
     navigator.mediaDevices.getUserMedia({ video: true })
       .then(stream => {
         video.srcObject = stream;
         video.onloadedmetadata = () => {
-          overlay.width = video.videoWidth;
-          overlay.height = video.videoHeight;
+          overlay.width = 320;
+          overlay.height = 240;
           startLoop();
         };
       });
 
     async function predictAndDraw() {
-
       ctx.drawImage(video, 0, 0, overlay.width, overlay.height);
-      const dataURL = overlay.toDataURL('image/jpeg');
+      const dataURL = overlay.toDataURL('image/jpeg', 0.5);
 
-      const resp = await fetch('/predict', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: dataURL })
-      });
-      const { result, frame } = await resp.json();
+      try {
+        const resp = await fetch('/predict', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image: dataURL })
+        });
 
-      if (frame) {
-        const img = new Image();
-        img.onload = () => {
-          ctx.clearRect(0, 0, overlay.width, overlay.height);
-          ctx.drawImage(img, 0, 0, overlay.width, overlay.height);
-        };
-        img.src = 'data:image/jpeg;base64,' + frame;
-      }
+        const { result, frame, type } = await resp.json();
 
-      if (result) {
-        resEl.innerText = result;
+        if (frame) {
+          const img = new Image();
+          img.onload = () => {
+            ctx.clearRect(0, 0, overlay.width, overlay.height);
+            ctx.drawImage(img, 0, 0, overlay.width, overlay.height);
+          };
+          img.src = 'data:image/jpeg;base64,' + frame;
+        }
+
+        if (result) {
+          if (type === 'char') {
+            resEl.innerText = result;
+          } else if (type === 'word') {
+            resEl.innerText = result;
+
+            if (result !== lastSpoken) {
+              lastSpoken = result;
+
+              const encoded = encodeURIComponent(result);
+              fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=ko&tl=en&dt=t&q=${encoded}`)
+                .then(res => res.json())
+                .then(data => {
+                  const translated = data[0].map(item => item[0]).join('');
+                  wordEl.innerText = translated;
+                  speakText(translated);
+                })
+                .catch(err => {
+                  console.error("❌ 번역 실패:", err);
+                  wordEl.innerText = '번역 실패';
+                  speakText(result); // fallback
+                });
+            }
+          }
+        }
+      } catch (err) {
+        console.error("❌ 예측 중 오류 발생:", err);
       }
     }
 
     function startLoop() {
       setInterval(predictAndDraw, 200);
     }
+
+    function speakText(text) {
+      if (!window.speechSynthesis) {
+        console.warn("이 브라우저는 SpeechSynthesis를 지원하지 않습니다.");
+        return;
+      }
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.lang = 'en-US';
+      utter.rate = 1;
+      utter.pitch = 1;
+      window.speechSynthesis.speak(utter);
+    }
   </script>
 </body>
 </html>
+

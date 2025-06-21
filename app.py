@@ -7,7 +7,6 @@ import numpy as np
 import base64
 import sqlite3
 import time
-
 from sing_lang_trans.webcam_test_model_tflite import (
     initialize_detector_and_model,
     process_hand_landmarks,
@@ -166,57 +165,63 @@ def predict():
     global seq, action_seq, last_action
     global collected_jamos, last_jamo_time
 
-    data = request.json['image']
-    img_data = base64.b64decode(data.split(',')[1])
-    np_arr = np.frombuffer(img_data, np.uint8)
-    frame = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+    try:
+        data = request.get_json(force=True)
+        img_b64 = data.get('image', '')
 
-    img = detector.findHolistic(frame, draw=True)
-    _, right_hand_lmList = detector.findRighthandLandmark(img)
+        img_data = base64.b64decode(img_b64.split(',')[1])
+        np_arr = np.frombuffer(img_data, np.uint8)
+        frame = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
 
-    result = None
-    result_type = 'char'  
+        img = detector.findHolistic(frame, draw=True)
+        _, right_hand_lmList = detector.findRighthandLandmark(img)
 
-    if right_hand_lmList:
-        feat = process_hand_landmarks(right_hand_lmList)
-        seq.append(feat)
+        result = None
+        result_type = 'char'  
 
-        if len(seq) >= seq_length:
-            input_data = np.expand_dims(np.array(seq[-seq_length:], dtype=np.float32), axis=0)
-            y_pred = predict_action(interpreter, input_data)
-            i_pred = int(np.argmax(y_pred))
-            conf = y_pred[i_pred]
+        if right_hand_lmList:
+            feat = process_hand_landmarks(right_hand_lmList)
+            seq.append(feat)
 
-            if conf > 0.9:
-                action = actions[i_pred]
-                action_seq.append(action)
+            if len(seq) >= seq_length:
+                input_data = np.expand_dims(np.array(seq[-seq_length:], dtype=np.float32), axis=0)
+                y_pred = predict_action(interpreter, input_data)
+                i_pred = int(np.argmax(y_pred))
+                conf = y_pred[i_pred]
 
-                if (
-                    len(action_seq) >= 3 and
-                    action_seq[-3:] == [action] * 3 and
-                    last_action != action
-                ):
-                    last_action = action
-                    collected_jamos += action
-                    last_jamo_time = time.time()
-                    result = action
-                    result_type = 'char'
+                if conf > 0.9:
+                    action = actions[i_pred]
+                    action_seq.append(action)
 
-    if collected_jamos and (time.time() - last_jamo_time > TIMEOUT_SECONDS):
-        result = compose_jamos(collected_jamos)
-        result_type = 'word'
-        collected_jamos = ''
-        action_seq.clear()
-        last_action = None
+                    if (
+                        len(action_seq) >= 3 and
+                        action_seq[-3:] == [action] * 3 and
+                        last_action != action
+                    ):
+                        last_action = action
+                        collected_jamos += action
+                        last_jamo_time = time.time()
+                        result = action
+                        result_type = 'char'
 
-    _, buf = cv2.imencode('.jpg', img)
-    frame_b64 = base64.b64encode(buf).decode('utf-8')
+        if collected_jamos and (time.time() - last_jamo_time > TIMEOUT_SECONDS):
+            result = compose_jamos(collected_jamos)
+            result_type = 'word'
+            collected_jamos = ''
+            action_seq.clear()
+            last_action = None
 
-    return jsonify({
-        'result': result,
-        'type': result_type,
-        'frame': frame_b64
-    })
+        _, buf = cv2.imencode('.jpg', img)
+        frame_b64 = base64.b64encode(buf).decode('utf-8')
+
+        return jsonify({
+            'result': result,
+            'type': result_type,
+            'frame': frame_b64
+        })
+    except Exception as e:
+        print("🔥 예외 발생:", e)
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/predict-asl', methods=['POST'])
 def predict_asl():
