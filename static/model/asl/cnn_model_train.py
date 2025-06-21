@@ -1,14 +1,15 @@
 import cv2
 import numpy as np
+import matplotlib.pyplot as plt
 import os
 from keras.models import Sequential
 from keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout
 from keras.preprocessing.image import ImageDataGenerator
 from keras.utils import to_categorical
+from sklearn.model_selection import train_test_split
 
 image_x, image_y = 50, 50
 
-# Load Dataset
 def load_data():
     images, labels = [], []
     for gesture_id in os.listdir("gestures"):
@@ -25,11 +26,11 @@ def load_data():
 
 images, labels = load_data()
 
-# Split train/validation
+train_images, val_images, train_labels, val_labels = train_test_split(images, labels, test_size=0.1, random_state=42)
+
 from sklearn.model_selection import train_test_split
 train_images, val_images, train_labels, val_labels = train_test_split(images, labels, test_size=0.1, random_state=42)
 
-# Data augmentation
 datagen = ImageDataGenerator(
     rotation_range=20,
     width_shift_range=0.1,
@@ -39,7 +40,6 @@ datagen = ImageDataGenerator(
 )
 datagen.fit(train_images)
 
-# Build stronger model
 model = Sequential([
     Conv2D(32, (3,3), activation='relu', input_shape=(image_x, image_y, 1)),
     MaxPooling2D((2,2)),
@@ -55,9 +55,29 @@ model = Sequential([
 
 model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
 
-# Train
+history = model.fit(datagen.flow(train_images, train_labels, batch_size=32),
+        epochs=30,
+        validation_data=(val_images, val_labels))
+
 model.fit(datagen.flow(train_images, train_labels, batch_size=32),
         epochs=30,
         validation_data=(val_images, val_labels))
 
 model.save("cnn_model_keras2.h5")
+
+plt.figure(figsize=(12,5))
+plt.subplot(1,2,1)
+plt.plot(history.history['accuracy'], label='train acc')
+plt.plot(history.history['val_accuracy'], label='val acc')
+plt.title('Accuracy')
+plt.legend()
+
+plt.subplot(1,2,2)
+plt.plot(history.history['loss'], label='train loss')
+plt.plot(history.history['val_loss'], label='val loss')
+plt.title('Loss')
+plt.legend()
+
+plt.tight_layout()
+plt.show()
+
