@@ -60,14 +60,14 @@ python app.py
 
 #### 🔧 모델 구성 (train_hand_gesture.ipynb)
 
-- LSTM → Dense → Dropout → Dense 구조  
-- L2 Regularization (과적합 방지)  
+- LSTM → Dropout → Dense → Dropout → Dense  
+- L2 Regularization (0.01)  
 - ReLU 활성화 함수  
-- Dropout(0.3)  
+- Dropout(0.3) *2  
 - CategoricalCrossEntropy 손실 함수  
 - Adam 옵티마이저  
-- ReduceLROnPlateau (학습률 자동 조정)  
-- EarlyStopping (21 epoch 적용)
+- ReduceLROnPlateau (factor 0.5, patience 50)  
+- EarlyStopping (patience 20, 최대 200 epoch)
 
 ---
 
