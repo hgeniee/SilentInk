@@ -119,14 +119,19 @@
               fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=ko&tl=en&dt=t&q=${encoded}`)
                 .then(res => res.json())
                 .then(data => {
-                  const translated = data[0].map(item => item[0]).join('');
-                  wordEl.innerText = translated;
-                  speakText(translated);
+                  const translated = data?.[0]?.map(item => item?.[0]).join('') || '';
+                  if (translated) {
+                    wordEl.innerText = translated;
+                    speakText(translated);
+                  } else {
+                    wordEl.innerText = '번역 실패';
+                    speakText(result); // fallback
+                  }
                 })
                 .catch(err => {
                   console.error("❌ 번역 실패:", err);
                   wordEl.innerText = '번역 실패';
-                  speakText(result); // fallback
+                  speakText(result);
                 });
             }
           }
@@ -145,12 +150,26 @@
         console.warn("이 브라우저는 SpeechSynthesis를 지원하지 않습니다.");
         return;
       }
+
+      console.log("🔈 음성 출력:", text);
+
+      window.speechSynthesis.cancel(); // 기존 발화 취소
       const utter = new SpeechSynthesisUtterance(text);
       utter.lang = 'en-US';
       utter.rate = 1;
       utter.pitch = 1;
+
+      utter.onerror = (e) => {
+        console.error("❌ 음성 출력 오류:", e);
+      };
+
       window.speechSynthesis.speak(utter);
     }
+
+    // 디버깅용: 음성 목록 확인
+    window.speechSynthesis.onvoiceschanged = () => {
+      console.log("🗣️ 사용 가능한 음성:", window.speechSynthesis.getVoices());
+    };
   </script>
 </body>
 </html>
