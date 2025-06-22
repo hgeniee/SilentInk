@@ -43,10 +43,31 @@ python app.py
 웹캠을 통해 실시간으로 수화를 인식하여 번역 결과를 제공합니다.
 
 **수화를 학습시키고 싶다면**
-1. create_gestures.py 실행<br>
-2. load_images.py 실행<br>
-3. cnn_model_train.py 실행<br>
-4. final.py 실행해서 확인<br>
+
+### 🏷️ eng → kor
+1. `create_gestures.py` 실행  
+2. `load_images.py` 실행  
+3. `cnn_model_train.py` 실행  
+4. `final.py` 실행해서 확인  
+--
+### 🏷️ kor → eng
+1. `create_dataset_from_video.py` 실행 (데이터 전처리)
+2. Jupyter 노트북 `sing_lang_trans/train_hand_gesture.ipynb` 전체 실행  
+3. `webcam_test_model_tflite.py` 실행해 실시간 확인  
+
+> ✅ LSTM 기반 모델로 수어 동작 시퀀스를 학습  
+> ✅ 학습된 TFLite 모델을 사용해 실시간 수어 → 영어 자막 출력  
+
+#### 🔧 모델 구성 (train_hand_gesture.ipynb)
+
+- LSTM → Dense → Dropout → Dense 구조  
+- L2 Regularization (과적합 방지)  
+- ReLU 활성화 함수  
+- Dropout(0.3)  
+- CategoricalCrossEntropy 손실 함수  
+- Adam 옵티마이저  
+- ReduceLROnPlateau (학습률 자동 조정)  
+- EarlyStopping (21 epoch 적용)
 
 ---
 
