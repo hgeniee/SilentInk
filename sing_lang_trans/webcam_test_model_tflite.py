@@ -95,7 +95,7 @@ def main():
     display_text = ""        # 화면에 표시할 최종 단어
     display_start_time = 0.0   # 단어 표시 시작 시각
 
-    timeout_seconds = 3        # 손이 사라진 뒤 단어 확정 대기 시간
+    timeout_seconds = 5        # 손이 사라진 뒤 단어 확정 대기 시간 (3~5)
     show_duration = 3          # 단어 화면 표시 시간
 
     print("[INFO] 수어 인식 시작 (ESC 키로 종료)")
